@@ -1,0 +1,93 @@
+#!/bin/bash
+
+# ------------------------------------------------------------------
+# Convert RepeatMasker output into sorted TE BED files.
+#
+# In this step, RepeatMasker output files (.out) are converted into
+# BED format by extracting the genomic coordinates and TE
+# classifications. Only transposable elements are kept for
+# downstream analyses, and the resulting BED files are sorted to
+# generate the final TE annotation files used throughout the
+# remainder of the pipeline.
+#
+# The same workflow was repeated for each Hydra genome.
+# ------------------------------------------------------------------
+
+############################################################
+# Hydra 105
+############################################################
+
+# Extract TE coordinates and retain only transposable elements
+awk 'NR>2 {split($11,a,"/"); print $5"\t"$6-1"\t"$7"\t"a[1]}' GCF_022113875.1_Hydra_105_v3_genomic.fna.out | \
+awk -F'\t' '$4=="DNA" || $4=="LINE" || $4=="MITE" || $4=="nMITE" || \
+$4=="LTR" || $4=="ClassI" || $4=="nLTR" || $4=="SINE" || \
+$4=="RC" || $4=="PLE" || $4=="ClassII" || $4=="unknown"' \
+> 105_rmsk_kept.bed
+
+# Sort BED file
+sort -k1,1 -k2,2n 105_rmsk_kept.bed > 105_rmsk_superfam.sorted.bed
+
+
+############################################################
+# Hydra oligactis
+############################################################
+
+# Extract TE coordinates and retain only transposable elements
+awk 'NR>2 {split($11,a,"/"); print $5"\t"$6-1"\t"$7"\t"a[1]}' Holi_105_ragtag.fasta.out | \
+awk -F'\t' '$4=="DNA" || $4=="LINE" || $4=="MITE" || $4=="nMITE" || \
+$4=="LTR" || $4=="ClassI" || $4=="nLTR" || $4=="SINE" || \
+$4=="RC" || $4=="PLE" || $4=="ClassII" || $4=="unknown"' \
+> Oli_rmsk_kept.bed
+
+# Sort BED file
+sort -k1,1 -k2,2n Oli_rmsk_kept.bed > Oli_rmsk_superfam.sorted.bed
+
+
+############################################################
+# Hydra vulgaris AEP
+############################################################
+
+# Extract TE coordinates and retain only transposable elements
+awk 'NR>2 {split($11,a,"/"); print $5"\t"$6-1"\t"$7"\t"a[1]}' HVAEP.genome.fa.out | \
+awk -F'\t' '$4=="DNA" || $4=="LINE" || $4=="MITE" || $4=="nMITE" || \
+$4=="LTR" || $4=="ClassI" || $4=="nLTR" || $4=="SINE" || \
+$4=="RC" || $4=="PLE" || $4=="ClassII" || $4=="unknown"' \
+> AEP_rmsk_kept.bed
+
+# Sort BED file
+sort -k1,1 -k2,2n AEP_rmsk_kept.bed > AEP_rmsk_superfam.sorted.bed
+
+
+############################################################
+# Hydra viridissima
+############################################################
+
+# Extract TE coordinates and retain only transposable elements
+awk 'NR>2 {split($11,a,"/"); print $5"\t"$6-1"\t"$7"\t"a[1]}' GCF_964215635.1_jhHydViri1.1_genomic.fna.out | \
+awk -F'\t' '$4=="DNA" || $4=="LINE" || $4=="MITE" || $4=="nMITE" || \
+$4=="LTR" || $4=="ClassI" || $4=="nLTR" || $4=="SINE" || \
+$4=="RC" || $4=="PLE" || $4=="ClassII" || $4=="unknown"' \
+> Viri_rmsk_kept.bed
+
+# Sort BED file
+sort -k1,1 -k2,2n Viri_rmsk_kept.bed > Viri_rmsk_superfam.sorted.bed
+
+
+############################################################
+# Expected output
+############################################################
+#
+# 105_rmsk_kept.bed
+# 105_rmsk_superfam.sorted.bed
+# Oli_rmsk_kept.bed
+# Oli_rmsk_superfam.sorted.bed
+# AEP_rmsk_kept.bed
+# AEP_rmsk_superfam.sorted.bed
+# Viri_rmsk_kept.bed
+# Viri_rmsk_superfam.sorted.bed
+#
+# These sorted BED files are used in the downstream analyses to
+# quantify transposable element composition surrounding opsin genes.
+#
+
+echo "Finished creating sorted RepeatMasker BED files."
