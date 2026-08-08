@@ -1,0 +1,167 @@
+#!/bin/bash
+
+# ------------------------------------------------------------------
+# Map species-specific opsin gene identifiers to phylogenetic names.
+#
+# In this step, species-specific opsin gene identifiers contained
+# in the TE coverage tables are mapped to a common Gene_ID_phylo
+# using the Opsin_Provenance_Master.csv file. This allows homologous
+# opsins to be compared across Hydra species in downstream analyses.
+#
+# Opsin_Provenance_Master.csv was provided by Rachel P. as part of
+# this project and contains the curated mapping between
+# species-specific opsin gene IDs and their corresponding
+# phylogenetic gene names.
+# ------------------------------------------------------------------
+
+############################################################
+# Create Python mapping script
+############################################################
+
+nano map_names.py
+
+############################################################
+# Python mapping script
+############################################################
+
+#!/usr/bin/env python3
+# Map gene names in a TE coverage table to their Gene_ID_phylo names from the pr
+ovenance master.
+# Usage: python3 map_names.py Opsin_Provenance_Master.csv [genome]_TE_coverage_b
+y_class.tsv out.tsv
+
+import csv                                          # stdlib CSV/TSV reader
+import sys                                          # stdlib, used to read the c
+ommand-line arguments
+
+master_file = sys.argv[1]                           # 1st argument: the provenan
+ce master CSV
+te_file     = sys.argv[2]                           # 2nd argument: the TE cover
+age TSV to annotate
+out_file    = sys.argv[3]                           # 3rd argument: where to wri
+te the annotated copy
+
+lookup = {}                                         # empty dict that will hold 
+{any known ID: phylo name}
+
+with open(master_file, newline="", encoding="utf-8-sig") as fh:   # utf-8-sig st
+rips the Excel BOM
+    for row in csv.DictReader(fh):                  # DictReader gives one dict 
+per row, keyed by header
+        name = row["Gene_ID_phylo"]                 # the systematic name we wan
+t to map TO
+        legacy = row["Legacy_ID"].strip()           # native gene ID (HVAEP1.Gxx
+xxx / HOLIxxxxx.Gxxxxx / XP_ ...)
+        if legacy:                                  # Hviri rows have this blank
+, so only add it when present
+            lookup[legacy] = name                   # key 1: the native ID exact
+ly as written
+            stem, dot, suffix = legacy.rpartition(".")        # split off whatev
+er follows the last dot
+            if dot and suffix.isdigit():                      # only a trailing 
+.NUMBER is an accession version
+                lookup[stem] = name                           # key 2: XP_047140
+615.1 also matches XP_047140615
+# Match LOC identifiers used by the Hv105 TE table 
+            loc = row["loc"].strip()
+            if loc:
+                lookup[loc] = name
+
+        coord = "_".join([row["chromosome_scaffold"],  # key 3: rebuild the coor
+dinate-style ID used by Hviri,
+                          row["start"],                # e.g. NC_136446.1_368029
+3_3681210_+
+                          row["end"],
+                          row["strand"]])
+        lookup[coord] = name                        # store the coordinate key t
+oo
+        lookup[coord.replace("+", "_")] = name       # IQ-TREE turns "+" into "_
+", so accept that form as well
+
+with open(te_file, newline="") as fh_in, open(out_file, "w", newline="") as fh_o
+ut:  # open both files at once
+    reader = csv.reader(fh_in, delimiter="\t")      # plain reader: we only care
+ about column order here
+    writer = csv.writer(fh_out, delimiter="\t")     # writes the same TSV format
+ back out
+    header = next(reader)                           # pull off the header line (
+gene, region, TE_class, pct_coverage)
+    writer.writerow(["Gene_ID_phylo"] + header)     # write a new header with th
+e phylo name added in front
+    unmatched = set()                               # collect any gene names tha
+t failed to map
+    for row in reader:                              # loop over every data line 
+in the TE table
+        gene = row[0]                               # the gene name is the first
+ column
+        name = lookup.get(gene, "")                 # look it up; empty string i
+f it is not in the master
+        if not name:                                # if nothing was found...
+            unmatched.add(gene)                     # ...remember it so we can r
+eport it at the end
+        writer.writerow([name] + row)               # write the row with the phy
+lo name prepended
+
+print("wrote", out_file)                            # confirm where the output w
+ent
+print("unmatched genes:", len(unmatched))           # how many distinct gene nam
+es did not map
+for gene in sorted(unmatched):                      # list them so nothing fails
+ silently
+    print("  ", gene)
+
+############################################################
+# Run mapping script
+############################################################
+
+# Hydra vulgaris AEP
+
+python3 map_names.py \
+Opsin_Provenance_Master.csv \
+AEP_TE_coverage_by_class.tsv \
+AEP_TE_coverage_by_class_out.tsv
+
+############################################################
+# Hydra oligactis
+############################################################
+
+python3 map_names.py \
+Opsin_Provenance_Master.csv \
+Oli_TE_coverage_by_class.tsv \
+Oli_TE_coverage_by_class_out.tsv
+
+############################################################
+# Hydra 105
+############################################################
+
+python3 map_names.py \
+Opsin_Provenance_Master.csv \
+105_TE_coverage_by_class.tsv \
+105_TE_coverage_by_class_out.tsv
+
+############################################################
+# Hydra viridissima
+############################################################
+
+python3 map_names.py \
+Opsin_Provenance_Master.csv \
+Viri_TE_coverage_by_class.tsv \
+Viri_TE_coverage_by_class_out.tsv
+
+############################################################
+# Expected output
+############################################################
+
+#
+# AEP_TE_coverage_by_class_out.tsv
+# Oli_TE_coverage_by_class_out.tsv
+# 105_TE_coverage_by_class_out.tsv
+# Viri_TE_coverage_by_class_out.tsv
+#
+# These annotated tables contain an additional
+# Gene_ID_phylo column that enables homologous
+# opsins to be grouped and compared across
+# Hydra species during downstream analyses.
+#
+
+echo "Finished mapping phylogenetic gene names."
