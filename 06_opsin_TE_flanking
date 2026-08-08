@@ -1,0 +1,183 @@
+#!/bin/bash
+
+# ------------------------------------------------------------------
+# Calculate transposable element coverage surrounding opsin genes.
+#
+# In this step, upstream and downstream flanking regions are generated
+# around each opsin gene using BEDTools. TE coverage is then calculated
+# across all transposable elements combined as well as separately for
+# each TE superfamily.
+#
+# Overlapping TE annotations between superfamilies are resolved before
+# calculating class-specific coverage so that genomic regions are not
+# counted more than once.
+#
+# The same workflow was repeated for each Hydra genome included in
+# this study.
+# ------------------------------------------------------------------
+
+
+############################################################
+# Software environment
+############################################################
+
+module load miniconda3
+source $(conda info --base)/etc/profile.d/conda.sh
+conda activate myenv
+
+############################################################
+# Create and edit a Slurm job script
+#
+# Replace <GENOME> with the genome being analyzed.
+# (e.g., AEP, 105, Viri, Oli)
+############################################################
+
+nano job_Opsin_flank_<GENOME>
+
+############################################################
+# Example Slurm job script
+############################################################
+
+#!/bin/bash
+#SBATCH -p                             # Partition name
+#SBATCH -J Opsin_TE_search             # Job name
+#SBATCH --mail-user=<your_email@institution.edu>
+#SBATCH --mail-type=ALL
+#SBATCH -o opsin_TE_%j.out             # Standard output file
+#SBATCH -N 1                           # Number of nodes
+#SBATCH -n 16                          # Number of CPU cores/tasks
+#SBATCH -t 24:00:00                    # Maximum runtime (hh:mm:ss)
+#SBATCH --mem=4G                       # Total memory requested
+
+
+module load miniconda3
+source $(conda info --base)/etc/profile.d/conda.sh
+conda activate myenv   # add if bedtools isn't already on PATH
+
+##############################################################################
+# CONFIG — edit these four lines for each genome, everything below is generic
+##############################################################################
+
+PREFIX="<PREFIX>"                      # short tag used to name all outputs
+OPSIN_BED="<OPSIN_BED>"                # sorted opsin BED file
+GENOME_INFO="<GENOME_INFO>"            # genome size file
+TE_BED="<TE_BED>"                      # sorted RepeatMasker BED file
+
+FLANK_SIZE=50000                          # bp of flanking sequence to scan
+
+# Priority order for resolving overlapping TE classes (first = highest priority)
+priority=(LTR LINE ClassI nLTR PLE SINE RC DNA ClassII MITE nMITE unknown)
+
+##############################################################################
+# Derived paths — no need to touch these
+##############################################################################
+
+FLANK_KB=$(( FLANK_SIZE / 1000 ))
+UPSTREAM_BED="${PREFIX}_opsins.upstream${FLANK_KB}kb.sorted.bed"
+DOWNSTREAM_BED="${PREFIX}_opsins.downstream${FLANK_KB}kb.sorted.bed"
+TE_MERGED="${PREFIX}_TE_all_merged.bed"
+TE_BY_CLASS_DIR="${PREFIX}_TE_by_class"
+TE_RESOLVED_DIR="${PREFIX}_TE_resolved"
+CLAIMED_BED="${PREFIX}_claimed.bed"
+UP_COV_OUT="${PREFIX}_TE_total_coverage_upstream.txt"
+DOWN_COV_OUT="${PREFIX}_TE_total_coverage_downstream.txt"
+BYCLASS_OUT="${PREFIX}_TE_coverage_by_class.tsv"
+
+##############################################################################
+# 1. Get flanking regions around opsins
+##############################################################################
+
+bedtools flank -i "$OPSIN_BED" -g "$GENOME_INFO" -l "$FLANK_SIZE" -r 0 -s \
+  | sort -k1,1 -k2,2n > "$UPSTREAM_BED"
+
+bedtools flank -i "$OPSIN_BED" -g "$GENOME_INFO" -l 0 -r "$FLANK_SIZE" -s \
+  | sort -k1,1 -k2,2n > "$DOWNSTREAM_BED"
+
+##############################################################################
+# 2. Total TE coverage (class-blind, merged so no double-counting)
+##############################################################################
+
+cut -f1-3 "$TE_BED" | sort -k1,1 -k2,2n | bedtools merge -i - > "$TE_MERGED"
+
+bedtools coverage -a "$UPSTREAM_BED"   -b "$TE_MERGED" > "$UP_COV_OUT"
+bedtools coverage -a "$DOWNSTREAM_BED" -b "$TE_MERGED" > "$DOWN_COV_OUT"
+
+##############################################################################
+# 3. Split TE file by superfamily, merging within each class
+##############################################################################
+
+mkdir -p "$TE_BY_CLASS_DIR"
+for cls in $(cut -f4 "$TE_BED" | sort -u); do
+  awk -v c="$cls" -F'\t' '$4==c' "$TE_BED" \
+    | sort -k1,1 -k2,2n | bedtools merge -i - -c 4 -o distinct \
+    > "${TE_BY_CLASS_DIR}/${cls}.bed"
+done
+
+##############################################################################
+# 4. Resolve cross-class overlaps by priority so % never sums >100
+##############################################################################
+
+mkdir -p "$TE_RESOLVED_DIR"
+> "$CLAIMED_BED"
+
+for cls in "${priority[@]}"; do
+  f="${TE_BY_CLASS_DIR}/${cls}.bed"
+  [ -f "$f" ] || continue
+  if [ -s "$CLAIMED_BED" ]; then
+    bedtools subtract -a "$f" -b "$CLAIMED_BED" > "${TE_RESOLVED_DIR}/${cls}.bed"
+  else
+    cp "$f" "${TE_RESOLVED_DIR}/${cls}.bed"
+  fi
+  cat "$CLAIMED_BED" "${TE_RESOLVED_DIR}/${cls}.bed" \
+    | sort -k1,1 -k2,2n | bedtools merge -i - > tmp_claimed.bed
+  mv tmp_claimed.bed "$CLAIMED_BED"
+done
+rm -f "$CLAIMED_BED"
+
+##############################################################################
+# 5. Per-class, per-region coverage -> tidy long table
+##############################################################################
+
+echo -e "gene\tregion\tTE_class\tpct_coverage" > "$BYCLASS_OUT"
+
+for region in upstream downstream; do
+  region_bed="${PREFIX}_opsins.${region}${FLANK_KB}kb.sorted.bed"
+  for f in "$TE_RESOLVED_DIR"/*.bed; do
+    cls=$(basename "$f" .bed)
+    bedtools coverage -a "$region_bed" -b "$f" \
+      | awk -v r="$region" -v c="$cls" -F'\t' '{print $4"\t"r"\t"c"\t"$NF*100}' \
+      >> "$BYCLASS_OUT"
+  done
+done
+
+echo "Done for ${PREFIX}. Outputs: ${UP_COV_OUT}, ${DOWN_COV_OUT}, ${BYCLASS_OUT}"
+
+
+############################################################
+# Expected output
+############################################################
+
+...
+echo "Finished calculating TE coverage surrounding opsin genes."
+############################################################
+
+
+############################################################
+# Expected output
+############################################################
+#
+# <PREFIX>_opsins.upstream50kb.sorted.bed
+# <PREFIX>_opsins.downstream50kb.sorted.bed
+# <PREFIX>_TE_all_merged.bed
+# <PREFIX>_TE_by_class/
+# <PREFIX>_TE_resolved/
+# <PREFIX>_TE_total_coverage_upstream.txt
+# <PREFIX>_TE_total_coverage_downstream.txt
+# <PREFIX>_TE_coverage_by_class.tsv
+#
+# These files are used to quantify transposable element
+# coverage surrounding opsin genes and generate the final
+# figures.
+#
+
+echo "Finished calculating TE coverage surrounding opsin genes."
