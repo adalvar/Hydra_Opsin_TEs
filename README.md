@@ -1,12 +1,14 @@
-# _Hydra_ Opsin TE Analysis
+# *Hydra* Opsin TE Analysis
 
-Code and analysis pipelines for investigating transposable element composition surrounding *Hydra* opsin genes.
+Code and analysis pipelines used to characterize transposable element (TE) composition surrounding opsin genes across multiple *Hydra* genomes.
 
+---
 
 # Overview
 
-This repository contains the scripts and workflow used to characterize transposable element (TE) composition surrounding opsin genes in multiple *Hydra* genomes.
+This repository contains the scripts and workflow used to characterize transposable element composition surrounding opsin genes in multiple *Hydra* species. The pipeline includes repeat annotation, generation of genomic feature files, calculation of TE coverage surrounding opsin and background genes, mapping of phylogenetic gene names, and downstream visualization in R.
 
+---
 
 # Manuscript
 
@@ -14,12 +16,14 @@ This repository accompanies an ongoing study investigating transposable element 
 
 *Citation will be added upon publication.*
 
+---
 
 # Platforms Used
 
-- UCSC Hummingbird Computing Cluster (command line)
+- UCSC Hummingbird Computing Cluster (Linux command line)
 - RStudio
 
+---
 
 # Packages and Dependencies
 
@@ -49,67 +53,79 @@ This repository accompanies an ongoing study investigating transposable element 
 - sed
 - sort
 
+---
 
-# Methodology
+# Workflow
 
-1. Download genome assemblies and corresponding genome annotation files.
-
+1. Generate species-specific opsin gene lists from genome annotation files.
 2. Annotate transposable elements using RepeatMasker with a custom Medusozoa repeat library.
+3. Create sorted BED files containing genomic coordinates for opsin genes.
+4. Generate genome index and chromosome size files using `samtools faidx`.
+5. Convert RepeatMasker output (`.out`) into sorted BED files containing TE coordinates and classifications.
+6. Calculate transposable element coverage within 50 kb upstream and downstream flanking regions surrounding opsin genes.
+7. Generate sorted BED files containing background protein-coding genes.
+8. Calculate genome-wide background TE coverage using the same workflow.
+9. Map species-specific opsin gene identifiers to shared phylogenetic gene names.
+10. Generate publication-quality figures and summary statistics using custom R scripts.
 
-3. Generate species-specific opsin gene lists from genome annotation files.
-
-4. Create sorted BED files containing genomic coordinates for all opsin genes.
-
-5. Index each genome using `samtools faidx` and generate genome size files for BEDTools.
-
-6. Convert RepeatMasker output (`.out`) into sorted BED files containing TE coordinates and classifications.
-
-7. Generate 50 kb upstream and downstream flanking regions surrounding each opsin gene using BEDTools.
-
-8. Calculate total TE coverage within each flanking region.
-
-9. Separate TEs by superfamily, resolve overlapping annotations, and calculate per-class TE coverage.
-
-10. Export TE coverage summaries as tab-delimited (`.tsv`) files.
-
-11. Generate visualizations of TE composition using custom R scripts.
-
-12. Calculate genome-wide background TE coverage for comparison with opsin-associated regions.
-
+---
 
 # Repository Contents
 
 ```
-scripts/
-    Shell, Python, and SLURM scripts used throughout the analysis pipeline
-
-R/
-    R scripts used for visualization and downstream analyses
-
-example_files/
-    Example input files and templates
-
-docs/
-    Additional documentation
+01_generate_opsin_gene_lists.sh
+02_repeatmasker.sh
+03_make_opsin_bed.py
+04_create_genome_info.sh
+05_repeatmasker_to_bed.sh
+06_opsin_TE_flanking.sh
+07_make_background_gene_bed.sh
+08_background_TE_flanking.sh
+09_map_phylogenetic_gene_names.sh
+10_opsin_TE_analysis.R
+11_background_TE_analysis.R
+README.md
 ```
+
+---
+
+# Input Files
+
+The workflow requires:
+
+- Genome assembly FASTA files
+- Genome annotation files (`.gff` or `.gff3`)
+- Species-specific opsin gene lists
+- RepeatMasker output files (`.out`)
+- `Opsin_Provenance_Master.csv`
+- Custom Medusozoa repeat library
+
+---
 
 # Output Files
 
-The pipeline produces:
+The pipeline generates:
 
-- TE coverage summaries (`.tsv`)
-- Total upstream TE coverage
-- Total downstream TE coverage
+- Sorted opsin BED files
+- Genome index and chromosome size files
+- Sorted RepeatMasker BED files
+- Opsin TE coverage tables (`*_TE_coverage_by_class.tsv`)
+- Background TE coverage tables (`*_background_TE_coverage_by_class.tsv`)
+- Annotated TE coverage tables (`*_TE_coverage_by_class_out.tsv`)
 - Publication-quality PDF figures
-- Background TE coverage summaries
 
+---
 
 # Data Availability
 
-Genome assemblies and genome annotation files were obtained from NCBI GenBank. Repeat annotations were generated using RepeatMasker with a custom Medusozoa repeat library.
+Genome assemblies and genome annotation files were obtained from NCBI GenBank.
 
+Repeat annotations were generated using RepeatMasker with a custom Medusozoa repeat library.
+
+The `Opsin_Provenance_Master.csv` file, used to map species-specific opsin gene identifiers to shared phylogenetic gene names, was provided as part of the project resources.
+
+---
 
 # Acknowledgements
 
-This pipeline was developed in the Macias-Muñoz Lab at the University of California, Santa Cruz.
-
+This computational workflow was developed in the Cnido Lab at the University of California, Santa Cruz.
