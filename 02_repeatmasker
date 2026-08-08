@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# ------------------------------------------------------------------
+# Annotate transposable elements using RepeatMasker.
+#
+# In this step, each Hydra genome is annotated using RepeatMasker
+# with a custom Medusozoa repeat library. RepeatMasker identifies the
+# genomic location and classification of transposable elements. The
+# resulting RepeatMasker output files are used in the downstream
+# analyses to characterize TE composition surrounding opsin genes.
+#
+# Jobs were submitted to the UCSC Hummingbird Computing Cluster using
+# Slurm job scripts. An example using Hydra vulgaris AEP is shown
+# below. The same workflow was repeated for each genome included in
+# this study.
+# ------------------------------------------------------------------
+
+# Download Hydra vulgaris AEP genome assembly
+wget https://research.nhgri.nih.gov/HydraAEP/download/sequences/hv_aep/HVAEP.genome.fa.gz
+
+# Unzip genome assembly
+gunzip HVAEP.genome.fa.gz
+
+# Create and edit a Slurm job script.
+# Replace <ID> with a name for your genome (e.g., AEP, 105, Viri, Oli).
+nano job_repmasker_<ID>
+
+# ------------------------------------------------------------------
+# Example Slurm job script
+# ------------------------------------------------------------------
+#
+# The example below shows the Slurm resources used for most genomes.
+# Hydra oligactis required additional computational resources, so
+# it was submitted with a 5-day runtime and 64 GB of memory.
+#
+
+#!/bin/bash
+#SBATCH -p 128x24
+#SBATCH -J Remask_AEP
+#SBATCH --mail-user=your_email@institution.edu
+#SBATCH --mail-type=ALL
+#SBATCH -o AEP_repmasker.out
+#SBATCH -N 1
+#SBATCH -n 16
+#SBATCH -t 24:00:00
+#SBATCH --mem=4G
+
+module load repeatmodeler
+
+# Update the path below to the location of your custom Medusozoa repeat library.
+REPEAT_LIBRARY=/path/to/2medusozoa_rep_lib_C.fasta
+
+RepeatMasker \
+    -lib "$REPEAT_LIBRARY" \
+    -pa 16 \
+    HVAEP.genome.fa
+
+echo "Finished RepeatMasker annotation."
