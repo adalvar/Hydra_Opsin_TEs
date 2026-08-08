@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# ------------------------------------------------------------------
+# Create sorted BED files containing background gene coordinates.
+#
+# In this step, sorted BED files are generated containing the genomic
+# coordinates of protein-coding genes. These genes are used as a
+# genomic background for comparison with opsin-associated TE coverage.
+#
+# Species-specific genome annotations require slightly different
+# commands to extract background gene coordinates. Example commands
+# for each Hydra genome are shown below.
+# ------------------------------------------------------------------
+
+############################################################
+# Hydra vulgaris AEP
+############################################################
+
+awk 'BEGIN{OFS="\t"} $3=="gene"{
+match($9,/ID=[^;]+/)
+id=substr($9,RSTART+3,RLENGTH-3)
+print $1,$4-1,$5,id,".",$7
+}' HVAEP.GeneModels.gff3 \
+| sort -k1,1 -k2,2n > HVAEP.genes.sorted.bed
+
+
+############################################################
+# Hydra oligactis
+############################################################
+
+awk 'BEGIN{OFS="\t"} $3=="gene"{
+match($9,/ID=[^;]+/)
+id=substr($9,RSTART+3,RLENGTH-3)
+print $1,$4-1,$5,id,".",$7
+}' HOLI.GeneModels.gff3 \
+| sort -k1,1 -k2,2n > HOLI.genes.sorted.bed
+
+
+############################################################
+# Hydra 105
+############################################################
+
+awk -F'\t' 'BEGIN{OFS="\t"} $3=="gene" && $9 ~ /(gene_type|gene_biotype|biotype)=protein_coding(;|$)/ {
+print $1,$4-1,$5,$9,".",$7
+}' input.gff \
+| sort -k1,1 -k2,2n > 105_protein_coding_genes.sorted.bed
+
+
+############################################################
+# Hydra viridissima
+############################################################
+
+awk -F'\t' 'BEGIN{OFS="\t"} $3=="gene" && $9 ~ /(gene_type|gene_biotype|biotype)=protein_coding(;|$)/ {
+print $1,$4-1,$5,$9,".",$7
+}' input.gff \
+| sort -k1,1 -k2,2n > Viri_protein_coding_genes.sorted.bed
+
+
+############################################################
+# Expected output
+############################################################
+
+#
+# HVAEP.genes.sorted.bed
+# HOLI.genes.sorted.bed
+# 105_protein_coding_genes.sorted.bed
+# Viri_protein_coding_genes.sorted.bed
+#
+# These BED files are used as input for the background
+# transposable element coverage analysis.
+#
+
+echo "Finished creating background gene BED files."
