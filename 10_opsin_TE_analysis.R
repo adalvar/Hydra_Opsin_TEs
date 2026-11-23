@@ -1,5 +1,3 @@
-Got it. **Your script as given, placed into the original GitHub template**, with the directory and species filename placeholders retained.
-
 ```r
 # ------------------------------------------------------------------
 # Analyze transposable element coverage surrounding opsin genes.
